@@ -1,0 +1,98 @@
+package com.lenovo.highavailablecommon;
+
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * Created by root on 2017/11/1.
+ */
+public class Sentinel implements Runnable{
+
+    static {
+        CommonTools.InitLog4jConfig();
+    }
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Sentinel.class);
+
+
+    public static JSONArray _JSONArrayMasterKV;
+
+    public static JSONArray _JSONArrayMasterETCDClusterNode;
+
+
+    @Override
+    public void run() {
+
+        new HighAvailableManager().fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
+
+    }
+
+
+
+    public String callOneThreadToLiveETCDSentinel(JSONObject _JSONObjectParameter,String patch_ETCDPropertisFile){
+
+        String result = "success";
+
+        if(null == _JSONObjectParameter || _JSONObjectParameter.size()<=0){
+            //
+            if(null != patch_ETCDPropertisFile && patch_ETCDPropertisFile.trim().length()>0){
+
+                CommonTools _CommonTools = new CommonTools();
+                //_JSONArrayMasterKV     _JSONArrayMasterETCDClusterNode
+                //String[] keyStringArray = {"_JSONArrayMasterKV","_JSONArrayMasterETCDClusterNode"};
+                List<String> keyStringArray = new ArrayList<String>();
+                //etcdcontext
+                keyStringArray.add("etcdcontext");
+
+                JSONArray _JSONArrayETCDContext = _CommonTools.getValueByKeyFromPropertis(patch_ETCDPropertisFile,keyStringArray);
+
+                JSONObject _JSONObjectETCDContext = _JSONArrayETCDContext.getJSONObject(0);
+
+                LOGGER.info("_JSONObjectETCDContext.toJSONString()--->>>>\n"+_JSONObjectETCDContext.toJSONString());
+
+                //etcdcontext
+                String value__etcdcontext = _JSONObjectETCDContext.getString("etcdcontext");
+
+                JSONObject JSONObject_value__etcdcontext = (JSONObject) JSONObject.parse(value__etcdcontext);
+
+                LOGGER.info("JSONObject_value__etcdcontext.toJSONString()--->>>"+JSONObject_value__etcdcontext.toJSONString());
+
+                _JSONArrayMasterKV = JSONObject_value__etcdcontext.getJSONArray("_JSONArrayMasterKV");
+
+                _JSONArrayMasterETCDClusterNode = JSONObject_value__etcdcontext.getJSONArray("_JSONArrayMasterETCDClusterNode");
+
+            }
+
+        }
+
+        (new Thread(new Sentinel())).start();
+
+        return result;
+    }
+
+
+
+    public static void main(String args[]) {
+
+//        HighAvailableManager _HighAvailableManager = new HighAvailableManager();
+//
+//        JSONObject _JSONObjectDataSource = _HighAvailableManager.generateData();
+
+        new Sentinel().callOneThreadToLiveETCDSentinel(null,"D:\\lenovoWorkSpace\\iotairmedia\\etcd\\etcdBFG\\src\\main\\resources\\etcd.conf");
+
+        System.out.println("already run this instance!!!!!!!!");
+
+
+    }
+
+
+}

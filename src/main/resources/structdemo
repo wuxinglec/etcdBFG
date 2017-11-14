@@ -1,0 +1,45 @@
+{
+    "_JSONArrayMasterKV":[
+        {
+            "urladdress":{
+                "valueArray":[
+                    "192.168.1.07",
+                    "8080",
+                    "topname/device/iot1",
+                    "$MOC/device/test_deviceid_05"
+                ],
+                "selectedIndex":3
+            },
+            "ttlinterval":"10",
+            "keyRangEnd":"fooz",
+            "standbyinvokeshell":"pkill -f MqttSubscriber ",
+            "alianamekey":"foo",
+            "keyRangStart":"foo",
+            "ttl":"20",
+            "masterinvokeshell":"/data/mqttsubscriber/start.sh -t "
+        },
+        {
+            "urladdress":{
+                "valueArray":[
+                    "192.168.2.77",
+                    "8080",
+                    "topname/devicetslt/iot2",
+                    "$MOC/device/test_deviceid_06"
+                ],
+                "selectedIndex":3
+            },
+            "ttlinterval":"10",
+            "keyRangEnd":"fooz",
+            "standbyinvokeshell":"pkill -f MqttSubscriber ",
+            "alianamekey":"foo2",
+            "keyRangStart":"foo",
+            "ttl":"20",
+            "masterinvokeshell":"/data/mqttsubscriber/start.sh -t"
+        }
+    ],
+    "_JSONArrayMasterETCDClusterNode":[
+        {
+            "etcipporturl":"http://27.cloudcpp.com:2379"
+        }
+    ]
+}

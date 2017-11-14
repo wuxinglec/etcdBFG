@@ -1,0 +1,8 @@
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/Struct.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/CommonTools.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/HighAvailableManager.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/LuaManager.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/IAMConsumer.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/test/HAM4.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/check.java
+/opt/sourcode/etcdBFG/src/main/java/com/lenovo/highavailablecommon/Sentinel.java
