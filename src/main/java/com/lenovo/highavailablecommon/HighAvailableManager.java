@@ -530,9 +530,10 @@ public class HighAvailableManager {
 
             keepAliveleaseID(leaseID,leaseClient,_Client,KEYParameter_ByteSequence);
 
+            //FUCK DEGINE
             if(null != _ThreadLockFlag && null !=mapForRabbitMQ && index == 1){
 
-                String fixedCommandParameter = CommonTools.getSelectedIndexParameter(KEYParameter_ByteSequence,JSONObject_ClientAll);
+                String fixedCommandParameter = IAMConsumer.getSelectedIndexParameter(KEYParameter_ByteSequence,JSONObject_ClientAll);
 
                 JSONObject _JSONObjectThreadAmonMesage = new JSONObject();
 

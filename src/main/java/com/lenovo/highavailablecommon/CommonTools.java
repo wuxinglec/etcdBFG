@@ -174,40 +174,6 @@ public class CommonTools {
     }
 
 
-    public static String getSelectedIndexParameter(ByteSequence KEYParameter_ByteSequence,JSONObject JSONObject_ClientAll){
-
-        if(null == KEYParameter_ByteSequence || null ==JSONObject_ClientAll){
-            LOGGER.error("null == KEYParameter_ByteSequence || null ==JSONObject_ClientAll");
-            return null;
-        }
-
-
-        String fixedCommandParameter = "";
-
-        List<JSONObject> list_JSONObjectKV = IAMConsumer.getValueByKeyFromETCD(
-                null,
-                null,
-                KEYParameter_ByteSequence.toStringUtf8(),
-                JSONObject_ClientAll);
-
-        JSONObject _JSONObjectKVFixedByIndex = list_JSONObjectKV.get(0);
-
-        String _StrValue = _JSONObjectKVFixedByIndex.getString("value_");
-
-        JSONObject _JSONObject__value_ = (JSONObject) JSONObject.parse(_StrValue);
-
-        //"value_" -> "{"valueArray":["192.168.1.07","8080","topname/device/iot1","192.168.1.07@@@@topname/device/iot1"],"selectedIndex":3}"
-        int selectedIndex = _JSONObject__value_.getInteger("selectedIndex");
-
-        JSONArray _JSONArrayvalueArray = (JSONArray) _JSONObject__value_.getJSONArray("valueArray");
-
-        fixedCommandParameter = (String) _JSONArrayvalueArray.get(selectedIndex);
-
-        LOGGER.debug("fixedCommandParameter-->>>"+fixedCommandParameter);
-
-        return fixedCommandParameter;
-
-    }
 
 
 
