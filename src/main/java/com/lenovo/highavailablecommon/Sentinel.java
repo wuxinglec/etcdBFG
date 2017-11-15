@@ -2,6 +2,7 @@ package com.lenovo.highavailablecommon;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.ObjectArraySerializer;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,12 +11,26 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
  * Created by root on 2017/11/1.
  */
 public class Sentinel implements Runnable{
+
+    Map<String,String> mapForRabbitMQ = null;
+
+    public Sentinel(Object _ThreadLockFlag,Map<String,String> mapForRabbitMQ){
+        super();
+        this._ThreadLockFlag = _ThreadLockFlag;
+        this.mapForRabbitMQ = mapForRabbitMQ;
+    }
+
+    public Sentinel(){
+        super();
+    }
+
 
     static {
         CommonTools.InitLog4jConfig();
@@ -28,17 +43,27 @@ public class Sentinel implements Runnable{
 
     public static JSONArray _JSONArrayMasterETCDClusterNode;
 
+    private Object _ThreadLockFlag;
 
     @Override
     public void run() {
 
-        new HighAvailableManager().fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
+        synchronized(_ThreadLockFlag){
+            new HighAvailableManager().fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
+
+        }
 
     }
 
 
 
     public String callOneThreadToLiveETCDSentinel(JSONObject _JSONObjectParameter,String patch_ETCDPropertisFile){
+
+        Thread.currentThread().setName("ThreadNameETCDBFC");
+
+        Thread.currentThread().getId();
+
+        LOGGER.info("Thread.currentThread().getName()--->>>"+Thread.currentThread().getName());
 
         String result = "success";
 
@@ -87,7 +112,14 @@ public class Sentinel implements Runnable{
 //
 //        JSONObject _JSONObjectDataSource = _HighAvailableManager.generateData();
 
-        new Sentinel().callOneThreadToLiveETCDSentinel(null,"D:\\lenovoWorkSpace\\iotairmedia\\etcd\\etcdBFG\\src\\main\\resources\\etcd.conf");
+        Object _ThreadLockFlag = new Object();
+
+
+
+        new Sentinel(_ThreadLockFlag,null).
+                callOneThreadToLiveETCDSentinel(
+                        null,
+                        "D:\\lenovoWorkSpace\\iotairmedia\\etcd\\etcdBFG\\src\\main\\resources\\etcd.conf");
 
         System.out.println("already run this instance!!!!!!!!");
 

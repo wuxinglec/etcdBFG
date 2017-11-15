@@ -21,10 +21,8 @@ import org.slf4j.LoggerFactory;
 import java.awt.*;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -35,6 +33,9 @@ public class HighAvailableManager {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HighAvailableManager.class);
 
+    private Object _ThreadLockFlag = null;
+
+    private Map<String,String> mapForRabbitMQ = null;
 
     public HighAvailableManager(JSONArray _JSONArrayMasterKV, JSONArray _JSONArrayMasterETCDClusterNode){
         JSONObject_ClientAll = check_fire_init(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
@@ -44,6 +45,14 @@ public class HighAvailableManager {
         super();
     }
 
+    public HighAvailableManager(Object _ThreadLockFlag,Map<String,String> mapForRabbitMQ){
+        super();
+        this._ThreadLockFlag = _ThreadLockFlag;
+        this.mapForRabbitMQ = mapForRabbitMQ;
+    }
+
+
+    //Object _ThreadLockFlag
 //    static {
 //        InitLog4jConfig();
 //
@@ -199,6 +208,8 @@ public class HighAvailableManager {
 
             Lease leaseClient = JSONObject_ClientAll.getObject("leaseClient",Lease.class);
 
+
+
             lableA:
             for(int i = 0 ; i<_JSONArrayMasterKV.size() ; i++){
 
@@ -217,6 +228,7 @@ public class HighAvailableManager {
 
                 String heartbeattestshellJSONObjectStr =_JSONObject_MasterKV.getString("heartbeattestshell");
 
+                //心跳检测shell逻辑 lua文件 位置
                 JSONObject heartbeattestshellJSONObject = null;
 
                 if(null !=heartbeattestshellJSONObjectStr && heartbeattestshellJSONObjectStr.trim().length()>0){
@@ -245,22 +257,12 @@ public class HighAvailableManager {
                             //ttlinterval = 5
                             long leaseID = leaseClient.grant(ttlinterval).get().getID();
 
-
-
-                            //int random100 = (int)(Math.random()*100+1);
-
-                            //long random100long = Long.valueOf(random100);
-
-                            //leaseID = leaseID +  random100long;
-
-
-                            //PutOption.newBuilder().withPrevKV();
                             //put
                             PutResponse _PutResponse = _KVClient.put(   KEYParameter_ByteSequence,
-                                                                        VALUEParameter_ByteSequence,
-                                                                        PutOption.newBuilder().
-                                                                                withLeaseId(leaseID).withPrevKV().
-                                                                                build()).get();
+                                    VALUEParameter_ByteSequence,
+                                    PutOption.newBuilder().
+                                            withLeaseId(leaseID).withPrevKV().
+                                            build()).get();
 
 
                             KeyValue __KeyValue_getPrevKv = _PutResponse.getPrevKv();
@@ -292,39 +294,23 @@ public class HighAvailableManager {
                             myRole="master";
 
                             //i am a master ,mybe i should run one shell
-
-//                            if(null != masterinvokeshell && masterinvokeshell.trim().length()>0){
-//                                LOGGER.info("masterinvokeshell--->will be run >>>"+masterinvokeshell);
-//                                LuaManager _LuaManager = new LuaManager();
-//                                String commandResult = _LuaManager.executeShellByLua(masterinvokeshell);
-//
-//                                //commandResult = commandResult+"";
-//
-//                                LOGGER.info("commandResult--->>>"+commandResult);
-//                            }
-
-
                             if(null != masterinvokeshell && masterinvokeshell.trim().length()>0){
-                                // sh start.sh -t
-//                                String shellDynamicParameter = "";
-//                                masterinvokeshell = masterinvokeshell +"";
                             }
-
-
 
                             //生效生命   创建一个新线程
                             callOneThreadToKeepAliveByleaseID(leaseID,
-                                                              leaseClient,
-                                                              ttlinterval,
-                                                              _Client,
-                                                              KEYParameter_ByteSequence,
-                                                              masterinvokeshell,
-                                                              JSONObject_ClientAll,
-                                                              heartbeattestshellJSONObject
-                                                              );
+                                    leaseClient,
+                                    ttlinterval,
+                                    _Client,
+                                    KEYParameter_ByteSequence,
+                                    masterinvokeshell,
+                                    JSONObject_ClientAll,
+                                    heartbeattestshellJSONObject
+                            );
 
                         }else if(countForSearchByKey > 0){
 
+                            //?
                             if(i == _JSONArrayMasterKV.size() - 1){
 
                                 myRole = "standby";
@@ -410,6 +396,13 @@ public class HighAvailableManager {
 //                    watch.watch(ByteSequence.fromString(keyRangStart),_WatchOption);
 //                }
 
+                //notify this is a standby letter
+                if(null != _ThreadLockFlag && null != mapForRabbitMQ){
+                    _ThreadLockFlag.notify();
+                    mapForRabbitMQ.put("","");
+                }
+
+
                 WatchResponse response = watcher.listen();
 
                 //Thread.sleep(10/2);
@@ -425,7 +418,9 @@ public class HighAvailableManager {
 
                     ByteSequence _ByteSequenceValue = event.getKeyValue().getValue();
 
-                    String _ByteSequenceValueStr = Optional.ofNullable(_ByteSequenceValue).map(ByteSequence::toStringUtf8).orElse("");
+                    String _ByteSequenceValueStr =
+                            Optional.ofNullable(_ByteSequenceValue).
+                                    map(ByteSequence::toStringUtf8).orElse("");
 
                     LOGGER.info("type={}, key={}, value={}", currentEventType, _ByteSequenceKeyValueStr, _ByteSequenceValueStr);
 
@@ -533,9 +528,26 @@ public class HighAvailableManager {
 
             index = index +1;
 
-
-
             keepAliveleaseID(leaseID,leaseClient,_Client,KEYParameter_ByteSequence);
+
+            if(null != _ThreadLockFlag && null !=mapForRabbitMQ && index == 1){
+
+                String fixedCommandParameter = CommonTools.getSelectedIndexParameter(KEYParameter_ByteSequence,JSONObject_ClientAll);
+
+                JSONObject _JSONObjectThreadAmonMesage = new JSONObject();
+
+                _JSONObjectThreadAmonMesage.put("role","master");
+
+                _JSONObjectThreadAmonMesage.put("fixedCommandParameter",fixedCommandParameter);
+
+                String messageStr = _JSONObjectThreadAmonMesage.toJSONString();
+
+                mapForRabbitMQ.put("ThreadLetter",messageStr);
+
+                _ThreadLockFlag.notify();
+
+                LOGGER.info("Thread message is sended..........._ThreadLockFlag.notify()..........the content is--->>>\n"+messageStr);
+            }
 
             try {
                 Thread.sleep(ttlinterval);
@@ -546,7 +558,6 @@ public class HighAvailableManager {
             if(index == 1){
 
                 if(null != masterinvokeshell && masterinvokeshell.trim().length()>0){
-
 
                     List<JSONObject> list_JSONObjectKV = IAMConsumer.getValueByKeyFromETCD(null,null,KEYParameter_ByteSequence.toStringUtf8(),JSONObject_ClientAll);
 
@@ -563,9 +574,12 @@ public class HighAvailableManager {
 
                     String fixedCommandParameter = (String) _JSONArrayvalueArray.get(selectedIndex);
 
-                    System.out.println(fixedCommandParameter);
+                    LOGGER.debug(fixedCommandParameter);
+                    //System.out.println(fixedCommandParameter);
 
-                    System.out.println("_JSONObjectValue--->>>"+_StrValue);
+                    //System.out.println("_JSONObjectValue--->>>"+_StrValue);
+                    LOGGER.info("_JSONObjectValue--->>>"+_StrValue);
+
 
                     LOGGER.info("masterinvokeshell--->will be run >>>"+masterinvokeshell);
 
@@ -583,21 +597,24 @@ public class HighAvailableManager {
 
             }else{
 
-                String luaFilepath = heartbeattestshellJSONObject.getString("luaFilepath");
-                String luaMethodName = heartbeattestshellJSONObject.getString("luaMethodName");
+                //如果配置了  心跳检测shell lua 文件  逻辑
+                if(null !=heartbeattestshellJSONObject && heartbeattestshellJSONObject.toJSONString().trim().length()>0){
 
-                String checkFlag = LuaManager.executeShellByLuaDetail(luaFilepath,luaMethodName,null);
-                if(null == checkFlag || checkFlag.trim().length()<=0 || checkFlag.equals("false")){
-                    LOGGER.error("--->>>>null == checkFlag || checkFlag.trim().length()<=0 || checkFlag.equals(\"false\")");
-                    break lablewhiletrue;
+                    LOGGER.info("heartbeattestshellJSONObject.toJSONString()--->>>"+heartbeattestshellJSONObject.toJSONString());
+
+                    String luaFilepath = heartbeattestshellJSONObject.getString("luaFilepath");
+
+                    String luaMethodName = heartbeattestshellJSONObject.getString("luaMethodName");
+
+                    String checkFlag = LuaManager.executeShellByLuaDetail(luaFilepath,luaMethodName,null);
+
+                    if(null == checkFlag || checkFlag.trim().length()<=0 || checkFlag.equals("false")){
+                        LOGGER.error("--->>>>null == checkFlag || checkFlag.trim().length()<=0 || checkFlag.equals(\"false\")");
+                        break lablewhiletrue;
+                    }
                 }
-
-
             }
-
-
         }
-
 
         fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
 
