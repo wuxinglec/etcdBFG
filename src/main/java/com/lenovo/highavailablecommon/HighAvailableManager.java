@@ -255,7 +255,7 @@ public class HighAvailableManager {
                         //如果 etcd 没有此 key 及 对应的 值
                         if(countForSearchByKey <=0){
                             //ttlinterval = 5
-                            long leaseID = leaseClient.grant(ttlinterval).get().getID();
+                            long leaseID = leaseClient.grant(ttl).get().getID();
 
                             //put
                             PutResponse _PutResponse = _KVClient.put(   KEYParameter_ByteSequence,
@@ -385,85 +385,96 @@ public class HighAvailableManager {
 
         try{
 
-            lableA:
-            for (int i = 0; i < Integer.MAX_VALUE; i++) {
+                lableA:
+                for (int i = 0; i < Integer.MAX_VALUE; i++) {
 
-                LOGGER.info("Watching for keyRangStart={}", keyRangStart);
+                    LOGGER.info("Watching for keyRangStart={}", keyRangStart);
 
-                LOGGER.info("Watching for keyRangEnd={}", keyRangEnd);
+                    LOGGER.info("Watching for keyRangEnd={}", keyRangEnd);
 
 //                if(null == response.getEvents()){
 //                    watch.watch(ByteSequence.fromString(keyRangStart),_WatchOption);
 //                }
+                    synchronized (_ThreadLockFlag){
+                    //notify this is a standby letter
+                    if(null != _ThreadLockFlag && null != mapForRabbitMQ){
 
-                //notify this is a standby letter
-                if(null != _ThreadLockFlag && null != mapForRabbitMQ){
-                    _ThreadLockFlag.notify();
-                    mapForRabbitMQ.put("","");
-                }
+                        LOGGER.info("i am a standby , i will watching , and notify subscrpter thread ");
+
+                        JSONObject _JSONObjectThreadAmonMesage = new JSONObject();
+
+                        _JSONObjectThreadAmonMesage.put("role","standby");
+
+                        mapForRabbitMQ.put("ThreadLetter",_JSONObjectThreadAmonMesage.toJSONString());
+
+                        _ThreadLockFlag.notify();
+                    }
+                    }
 
 
-                WatchResponse response = watcher.listen();
+                    WatchResponse response = watcher.listen();
 
-                //Thread.sleep(10/2);
+                    //Thread.sleep(10/2);
 
-                lableB:
-                for (WatchEvent event : response.getEvents()) {
+                    lableB:
+                    for (WatchEvent event : response.getEvents()) {
 
-                    WatchEvent.EventType currentEventType = event.getEventType();
+                        WatchEvent.EventType currentEventType = event.getEventType();
 
-                    ByteSequence _ByteSequenceKey= event.getKeyValue().getKey();
+                        ByteSequence _ByteSequenceKey= event.getKeyValue().getKey();
 
-                    String _ByteSequenceKeyValueStr = Optional.ofNullable(_ByteSequenceKey).map(ByteSequence::toStringUtf8).orElse("");
+                        String _ByteSequenceKeyValueStr = Optional.ofNullable(_ByteSequenceKey).map(ByteSequence::toStringUtf8).orElse("");
 
-                    ByteSequence _ByteSequenceValue = event.getKeyValue().getValue();
+                        ByteSequence _ByteSequenceValue = event.getKeyValue().getValue();
 
-                    String _ByteSequenceValueStr =
-                            Optional.ofNullable(_ByteSequenceValue).
-                                    map(ByteSequence::toStringUtf8).orElse("");
+                        String _ByteSequenceValueStr =
+                                Optional.ofNullable(_ByteSequenceValue).
+                                        map(ByteSequence::toStringUtf8).orElse("");
 
-                    LOGGER.info("type={}, key={}, value={}", currentEventType, _ByteSequenceKeyValueStr, _ByteSequenceValueStr);
+                        LOGGER.info("type={}, key={}, value={}", currentEventType, _ByteSequenceKeyValueStr, _ByteSequenceValueStr);
 
-                    if(currentEventType.name().equals("DELETE")){
+                        if(currentEventType.name().equals("DELETE")){
 
-                        //find value by key if 1 --->fire else watch  fixme
-                        KV _KVClient = client.getKVClient();
+                            //find value by key if 1 --->fire else watch  fixme
+                            KV _KVClient = client.getKVClient();
 
-                        long countForSearchByKey = _KVClient.get(_ByteSequenceKey).get().getCount();
-                        //Thread.sleep();
-                        if(countForSearchByKey <= 0){//此key
+                            long countForSearchByKey = _KVClient.get(_ByteSequenceKey).get().getCount();
+                            //Thread.sleep();
+                            if(countForSearchByKey <= 0){//此key
+                                //delete
+                                //watcher.close();
+                                //
+                                LOGGER.debug("watcher get the DELETE Event,and the watcher will be cancel watch!!!!");
+
+                                watcher.close();
+
+                                flagToMaster = true;
+
+                                LOGGER.debug("watcher already canceld wathch watch ,and then will snatch the master role!!!!");
+                                wayFlag = "fire";
+                                break lableA;
+                            }else {//this key already master put
+                                watcher.close();
+                                wayFlag = "watchEtcdByKeyRange";
+                                break lableA;
+                                //response.getEvents().removeAll(response.getEvents());
+                                //break lableB ;
+
+                                //watchEtcdByKeyRange(client,keyRangStart,keyRangEnd);
+                            }
+
+                        }
+
+                        if(currentEventType.equals("put")){
                             //delete
                             //watcher.close();
-                            //
-                            LOGGER.debug("watcher get the DELETE Event,and the watcher will be cancel watch!!!!");
-
-                            watcher.close();
-
-                            flagToMaster = true;
-
-                            LOGGER.debug("watcher already canceld wathch watch ,and then will snatch the master role!!!!");
-                            wayFlag = "fire";
-                            break lableA;
-                        }else {//this key already master put
-                            watcher.close();
-                            wayFlag = "watchEtcdByKeyRange";
-                            break lableA;
-                            //response.getEvents().removeAll(response.getEvents());
-                            //break lableB ;
-
-                            //watchEtcdByKeyRange(client,keyRangStart,keyRangEnd);
+                            LOGGER.info("watch get put Event ---->>>>>>>currentEventType.equals(\"put\")");
                         }
 
                     }
-
-                    if(currentEventType.equals("put")){
-                        //delete
-                        //watcher.close();
-                        LOGGER.info("watch get put Event ---->>>>>>>currentEventType.equals(\"put\")");
-                    }
-
                 }
-            }
+
+
         }catch (Exception e){
             e.printStackTrace();
         }
@@ -530,26 +541,30 @@ public class HighAvailableManager {
 
             keepAliveleaseID(leaseID,leaseClient,_Client,KEYParameter_ByteSequence);
 
-            //FUCK DEGINE
-            if(null != _ThreadLockFlag && null !=mapForRabbitMQ && index == 1){
+            synchronized (_ThreadLockFlag){
 
-                String fixedCommandParameter = IAMConsumer.getSelectedIndexParameter(KEYParameter_ByteSequence,JSONObject_ClientAll);
+                //FUCK DEGINE
+                if(null != _ThreadLockFlag && null !=mapForRabbitMQ && index %2 ==0){
 
-                JSONObject _JSONObjectThreadAmonMesage = new JSONObject();
+                    LOGGER.debug("--->>>>null != _ThreadLockFlag && null !=mapForRabbitMQ && index == 1");
 
-                _JSONObjectThreadAmonMesage.put("role","master");
+                    String fixedCommandParameter = IAMConsumer.getSelectedIndexParameter(KEYParameter_ByteSequence,JSONObject_ClientAll);
 
-                _JSONObjectThreadAmonMesage.put("fixedCommandParameter",fixedCommandParameter);
+                    JSONObject _JSONObjectThreadAmonMesage = new JSONObject();
 
-                String messageStr = _JSONObjectThreadAmonMesage.toJSONString();
+                    _JSONObjectThreadAmonMesage.put("role","master");
 
-                mapForRabbitMQ.put("ThreadLetter",messageStr);
+                    _JSONObjectThreadAmonMesage.put("fixedCommandParameter",fixedCommandParameter);
 
-                _ThreadLockFlag.notify();
+                    String messageStr = _JSONObjectThreadAmonMesage.toJSONString();
 
-                LOGGER.info("Thread message is sended..........._ThreadLockFlag.notify()..........the content is--->>>\n"+messageStr);
+                    mapForRabbitMQ.put("ThreadLetter",messageStr);
+
+                    _ThreadLockFlag.notify();
+
+                    LOGGER.info("Thread message is sended..........._ThreadLockFlag.notify()..........the content is--->>>\n"+messageStr);
+                }
             }
-
             try {
                 Thread.sleep(ttlinterval);
             } catch (InterruptedException e) {
@@ -664,7 +679,7 @@ public class HighAvailableManager {
 
             _LeaseKeepAliveResponse = _KeepAliveListener.listen();
 
-            LOGGER.debug("_LeaseKeepAliveResponse---->>>>"+_LeaseKeepAliveResponse);
+            LOGGER.debug("_LeaseKeepAliveResponse---->>>>"+_LeaseKeepAliveResponse+"------>>>key is show at next line:\n"+KEYParameter_ByteSequence.toStringUtf8());
 
         } catch (InterruptedException e) {
             e.printStackTrace();

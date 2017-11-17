@@ -48,16 +48,18 @@ public class Sentinel implements Runnable{
     @Override
     public void run() {
 
-        synchronized(_ThreadLockFlag){
-            new HighAvailableManager().fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
-
-        }
+//        synchronized(_ThreadLockFlag){
+            new HighAvailableManager(_ThreadLockFlag,mapForRabbitMQ).fire(_JSONArrayMasterKV,_JSONArrayMasterETCDClusterNode);
+//        }
 
     }
 
 
 
-    public String callOneThreadToLiveETCDSentinel(JSONObject _JSONObjectParameter,String patch_ETCDPropertisFile){
+    public static String callOneThreadToLiveETCDSentinel(JSONObject _JSONObjectParameter,
+                                                         String patch_ETCDPropertisFile,
+                                                         Object _ThreadLockFlag,
+                                                         Map<String,String> mapForRabbitMQ){
 
         Thread.currentThread().setName("ThreadNameETCDBFC");
 
@@ -99,13 +101,19 @@ public class Sentinel implements Runnable{
 
         }
 
-        (new Thread(new Sentinel())).start();
+        (new Thread(new Sentinel(_ThreadLockFlag,mapForRabbitMQ))).start();
 
         return result;
     }
 
+    public static void start(){
+        System.out.println("-------->>>>>>>>start()");
+    }
 
+    public static void stop(){
+        System.out.println("-------->>>>>>>>stop()");
 
+    }
     public static void main(String args[]) {
 
 //        HighAvailableManager _HighAvailableManager = new HighAvailableManager();
@@ -119,7 +127,7 @@ public class Sentinel implements Runnable{
         new Sentinel(_ThreadLockFlag,null).
                 callOneThreadToLiveETCDSentinel(
                         null,
-                        "D:\\lenovoWorkSpace\\iotairmedia\\etcd\\etcdBFG\\src\\main\\resources\\etcd.conf");
+                        "D:\\lenovoWorkSpace\\iotairmedia\\etcd\\etcdBFG\\src\\main\\resources\\etcd.conf",null,null);
 
         System.out.println("already run this instance!!!!!!!!");
 

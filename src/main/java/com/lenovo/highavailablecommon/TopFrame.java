@@ -10,9 +10,46 @@ import java.util.Map;
  */
 public class TopFrame {
 
+    public static  Object _ThreadLockFlag = new Object();
+
+    public static Map<String,String> mapForRabbitMQ = new HashMap<String,String>();
+
+
     public static void main(String[] args){
 
-        Map<String,String> mapMQ = new HashMap<String,String>();
+        callOneThreadToLive__SentinelSubscripter();
+
+        String path = "F:\\lenovoworkspace\\etcdallinone\\etcdstand\\etcdBFG\\src\\main\\resources\\etcd.conf";
+
+        Sentinel.callOneThreadToLiveETCDSentinel( null,
+                                                    path,_ThreadLockFlag,mapForRabbitMQ);
+
+
+
+
+//
+     //   System.out.println("already run this instance!!!!!!!!");
+//
+
+
+    }
+
+
+
+    public static String callOneThreadToLive__SentinelSubscripter(){
+
+        (new Thread(new SentinelSubscripter(_ThreadLockFlag,mapForRabbitMQ))).start();
+
+        System.out.println("--->>>>already callOneThreadToLive__SentinelSubscripter");
+
+        return "success";
+    }
+
+
+
+
+
+    public  static  void demoThread(){
 
         Long threadId = 1L;
 
@@ -22,23 +59,7 @@ public class TopFrame {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     }
-
 
     public static Thread findThread(long threadId) {
         ThreadGroup group = Thread.currentThread().getThreadGroup();

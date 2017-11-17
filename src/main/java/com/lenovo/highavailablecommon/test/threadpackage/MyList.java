@@ -33,10 +33,10 @@ class ThreadA extends Thread {
             synchronized (lock) {
                 System.out.print(lock.toString());
                 if (MyList.size() != 5) {
-                    System.out.println("wait begin "
+                    System.out.println("ThreadA wait begin "
                             + System.currentTimeMillis());
                     lock.wait();
-                    System.out.println("wait end  "
+                    System.out.println("ThreadA wait end  "
                             + System.currentTimeMillis());
                 }
             }
@@ -67,9 +67,9 @@ class ThreadB extends Thread {
                     if (MyList.size() == 5) {
                         //lock = "123";
                         lock.notify();
-                        System.out.println("已经发出了通知");
+                        System.out.println("ThreadB 已经发出了通知");
                     }
-                    System.out.println("添加了" + (i + 1) + "个元素!");
+                    System.out.println("ThreadB 添加了" + (i + 1) + "个元素!");
                     Thread.sleep(1000);
                 }
             }
